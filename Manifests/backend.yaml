@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  labels:
+    app: wishlist
+    tier: backend
+spec:
+  replicas: 2  # Running 2 replicas for high availability
+  selector:
+    matchLabels:
+      app: wishlist
+      tier: backend
+  template:
+    metadata:
+      labels:
+        app: wishlist
+        tier: backend
+    spec:
+      containers:
+      - name: backend-api
+        # Uses the image we built in the previous step
+        image: wishlist-backend:v1
+        # Crucial for local testing so K8s uses your local image instead of trying to pull from Docker Hub
+        imagePullPolicy: Never 
+        ports:
+        - containerPort: 5000
+        env:
+        # Tell the backend where to find the database and how to log in
+        - name: DATABASE_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: wishlist-db-config
+              key: DATABASE_HOST
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: wishlist-db-config
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: wishlist-db-config
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: wishlist-db-secret
+              key: POSTGRES_PASSWORD
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  selector:
+    app: wishlist
+    tier: backend
+  ports:
+    - port: 5000
+      targetPort: 5000
+  type: ClusterIP  # Keeps the API internal; the frontend proxy will talk to it
